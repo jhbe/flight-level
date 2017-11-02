@@ -1,0 +1,39 @@
+ABI=arm-unknown-eabihf
+TOOLCHAIN=/home/johan/x-tools/$(ABI)/bin/$(ABI)
+
+CC  = $(TOOLCHAIN)-gcc
+GCC = $(TOOLCHAIN)-gcc
+GXX = $(TOOLCHAIN)-g++
+LD  = $(TOOLCHAIN)-ld
+OC  = $(TOOLCHAIN)-objcopy
+OD  = $(TOOLCHAIN)-objdump
+NM  = $(TOOLCHAIN)-nm
+
+CFLAGS = -ffreestanding -O0 -g -march=armv6zk -mfpu=vfp -mhard-float -mfloat-abi=hard -march=armv6zk -mtune=arm1176jzf-s  -Wl,--build-id=none -Wl,-T,armelf_rpi.x
+
+HDR = $(wildcard *.h)
+SRC = $(filter-out test_runner.cpp $(wildcard *_test.cpp), $(wildcard *.c*)) $(wildcard *.s)
+OBJ = $(patsubst %.c*, %.o, $(SRC))
+
+DEPS= $(SRC) $(HDR) armelf_rpi.x makefile_target
+
+all: flightlevel.elf kernel.img flightlevel.txt flightlevel.list flightlevel.hex
+
+flightlevel.elf: $(DEPS)
+	$(GXX) $(CFLAGS) -o $@ $(SRC)
+
+kernel.img: flightlevel.elf
+	$(OC) $^ -O binary $@
+	#scp kernel.img pi@192.168.0.11:/home/pi/kernel.img
+
+flightlevel.hex: flightlevel.elf
+	$(OC) $^ -O ihex $@
+
+flightlevel.list: flightlevel.elf
+	$(OD) -D $^ >$@
+
+flightlevel.txt: flightlevel.elf
+	$(NM) $^ >$@
+
+clean:
+	rm -rf *.o flightlevel.elf kernel.img flightlevel.txt flightlevel.list flightlevel.hex

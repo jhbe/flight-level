@@ -1,0 +1,20 @@
+#!/bin/make -f
+
+CXX      = g++
+CXXFLAGS = `pkg-config cppunit --cflags` -Wall -g3
+LDFLAGS  = `pkg-config cppunit --libs` -g3
+
+all: test clean #test_runner
+	
+SRC = pitchandroll.cpp xyz.cpp vector.cpp $(wildcard *_test.cpp) test_runner.cpp
+HDR = pitchandroll.h   xyz.h   vector.h
+OBJ = $(patsubst %.cpp, %.o, $(SRC))
+
+test_runner: $(OBJ) makefile_unittests
+	$(CXX) -o $@ $(OBJ) $(LDFLAGS) 
+	
+test: test_runner makefile_unittests  $(OBJ)
+	./test_runner 
+
+clean: 
+	$(RM) test_runner $(OBJ)
