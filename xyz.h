@@ -1,6 +1,9 @@
 #ifndef XYZ_H
 #define XYZ_H
 
+/**
+ * This class hold a triplet of floats and provides scalar operators.
+ */
 class XYZ {
 public:
   XYZ() {

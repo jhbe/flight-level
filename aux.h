@@ -22,4 +22,4 @@
 
 extern volatile unsigned int* aux;
 
-#endif /* AUX_H_ */
+#endif

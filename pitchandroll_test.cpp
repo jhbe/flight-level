@@ -5,20 +5,20 @@
 
 class PitchAndRollTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(PitchAndRollTest);
-/*  CPPUNIT_TEST(testDefault);
+  CPPUNIT_TEST(testDefault);
   CPPUNIT_TEST(testZeroPut);
   CPPUNIT_TEST(testRoll);
   CPPUNIT_TEST(testPitch);
   CPPUNIT_TEST(testYaw);
-*/  CPPUNIT_TEST(testYawAndPitch);
-/*  CPPUNIT_TEST(testDtPut);
+  CPPUNIT_TEST(testYawAndPitch);
+  CPPUNIT_TEST(testDtPut);
   CPPUNIT_TEST(testZeroAdjust);
   CPPUNIT_TEST(testRollAdjust);
   CPPUNIT_TEST(testPitchAdjust);
   CPPUNIT_TEST(testPartialAdjust);
   CPPUNIT_TEST(testNegativeWeightAdjust);
   CPPUNIT_TEST(testLargeWeightAdjust);
-*/  CPPUNIT_TEST_SUITE_END();
+  CPPUNIT_TEST_SUITE_END();
 
 public:
 
@@ -164,8 +164,8 @@ public:
   void testPartialAdjust() {
     PitchAndRoll pr;
     pr.Adjust(1.0, 1.0, 0.0, 0.5);
-    CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("Roll", -30.0, pr.Roll(), 0.001);
-    CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("Pitch", 45.0, pr.Pitch(), 0.001);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("Roll", -35.264385, pr.Roll(), 0.001);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL_MESSAGE("Pitch", 30.0, pr.Pitch(), 0.001);
   }
   
   void testNegativeWeightAdjust() {

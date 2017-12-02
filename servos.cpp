@@ -26,13 +26,33 @@ Servos::Servos(int gpioNumber0, int gpioNumber1, int gpioNumber2,
 	}
 }
 
-void Servos::Set(int channel, int pulseLength) {
+void Servos::SetPulseLength(ServoChannel channel, int pulseLength) {
 	if (pulseLength < 1000) {
 		pulseLength = 1000;
 	} else if (pulseLength > 2000) {
 		pulseLength = 2000;
 	}
 	m_pulseLengths[channel] = pulseLength;
+}
+
+void Servos::SetAngle(ServoChannel channel, float angle) {
+	if (angle < -45.0) {
+		angle = -45.0;
+	} else if (angle > 45.0) {
+		angle = 45.0;
+	}
+	int length = 1500 + (int) (500.0 * angle / 45.0);
+	SetPulseLength(channel, length);
+}
+
+void Servos::SetThrottle(ServoChannel channel, float throttle) {
+	if (throttle < 0.0) {
+		throttle = 0.0;
+	} else if (throttle > 1.0) {
+		throttle = 1.0;
+	}
+	int length = 1000 + (int) (1000.0 * throttle);
+	SetPulseLength(channel, length);
 }
 
 void Servos::OnTimerIsr(void) {

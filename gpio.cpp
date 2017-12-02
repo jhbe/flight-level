@@ -140,6 +140,14 @@ void gpio_clear(int gpio_number) {
 	}
 }
 
+void gpio_copy(int from_gpio_number, int to_gpio_number) {
+	if (gpio_get(from_gpio_number)) {
+		gpio_set(to_gpio_number);
+	} else {
+		gpio_clear(to_gpio_number);
+	}
+}
+
 void gpio_set(int gpio_number) {
 	if (gpio_number < 32) {
 		gpio[GPIO_GPSET0] = (1 << gpio_number);

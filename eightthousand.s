@@ -37,11 +37,13 @@ reset:
     mov r0,#0xD2
     msr cpsr_c,r0
     mov sp,#0x8000
+#    mov sp,#0x180000
 
     ;@ (PSR_FIQ_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
     mov r0,#0xD1
     msr cpsr_c,r0
     mov sp,#0x4000
+#    mov sp,#0x140000
 
     ;@ (PSR_SVC_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
     mov r0,#0xD3

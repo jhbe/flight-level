@@ -5,7 +5,10 @@
 Led::Led(int gpioNumber, bool invert) {
 	m_invert = invert;
 	m_gpioNumber = gpioNumber;
+
 	m_flash = false;
+	m_flashOn = false;
+	m_lastFlash = 0;
 	gpio_set_output(m_gpioNumber);
 }
 

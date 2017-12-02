@@ -11,12 +11,14 @@
 #include "interrupts.h"
 #include "gpio.h"
 #include "led.h"
+#include "stddev.h"
 
 #define INPUT_0_GPIO   4
 #define INPUT_1_GPIO  17
 #define INPUT_2_GPIO  27
 #define INPUT_3_GPIO  10
 #define INPUT_4_GPIO   9
+#define INPUT_5_GPIO  11
 
 #define SERVO_0_GPIO  18
 #define SERVO_1_GPIO  23
@@ -24,6 +26,7 @@
 #define SERVO_3_GPIO  25
 
 #define GPIO_IRQ_NUMBER 49
+
 #define PERIODIC_TIMER_CHANNEL 1
 
 Led led(47, true);
@@ -33,6 +36,7 @@ Input input_1(INPUT_1_GPIO);
 Input input_2(INPUT_2_GPIO);
 Input input_3(INPUT_3_GPIO);
 Input input_4(INPUT_4_GPIO);
+Input input_5(INPUT_5_GPIO);
 PitchAndRoll pnr;
 
 void service(void) {
@@ -64,6 +68,13 @@ int main(void) {
 	XYZ accel;
 	int num_calibration_samples;
 
+	StdDev gxStdDev(100);
+	StdDev gyStdDev(100);
+	StdDev gzStdDev(100);
+	StdDev axStdDev(100);
+	StdDev ayStdDev(100);
+	StdDev azStdDev(100);
+
 	uint64_t last_time = systemtimer_get();
 	uint64_t last_state_update = last_time;
 
@@ -75,23 +86,39 @@ int main(void) {
 		mpu6050_read(gx, gy, gz, ax, ay, az, &service);
 
 		if (state == Initializing) {
-			state = Calibrating;
-			last_state_update = now;
-
 			zero_angles.Reset();
 			accel.Reset();
 			num_calibration_samples = 0;
+			gxStdDev.Reset();
+			gyStdDev.Reset();
+			gzStdDev.Reset();
+			axStdDev.Reset();
+			ayStdDev.Reset();
+			azStdDev.Reset();
 
 			led.Flash();
+
+			state = Calibrating;
+			last_state_update = now;
 		} else if (state == Calibrating) {
 			zero_angles.Add(gx, gy, gz);
 			accel.Add(ax, ay, az);
 			num_calibration_samples++;
 
-			if (abs(gx) > 5.0 || abs(gy) > 5.0 || abs(gz) > 5.0) {
+			gxStdDev.Put(gx);
+			gyStdDev.Put(gy);
+			gzStdDev.Put(gz);
+			axStdDev.Put(ax);
+			ayStdDev.Put(ay);
+			azStdDev.Put(az);
+
+			if (!gxStdDev.Valid() || !gyStdDev.Valid()) {
+				//
+				// Do nothing. We need more samples.
+				//
+			} else if (gxStdDev.Get() > 1.0 || gyStdDev.Get() > 1.0) {
 				state = Initializing;
-			} else if (abs(ax) > 0.1 || abs(ay) > 0.1 || abs(az-0.9) > 0.1) {
-				state = Initializing;
+				printf("%0.6f %0.6f    %0.6f %0.6f %0.6f \n\r", gxStdDev.Get(), gyStdDev.Get(), ax, ay, az);
 			} else if (now - last_state_update > 5000000) {
 				state = Running;
 				last_state_update = now;
@@ -99,38 +126,32 @@ int main(void) {
 				zero_angles /= (float) num_calibration_samples;
 				accel /= (float) num_calibration_samples;
 
-				pnr.Adjust(accel.X(), accel.Y(), accel.Z(), 1.0);
+				// Why do we do this? Can't remember, so disabled it.
+				//pnr.Adjust(accel.X(), accel.Y(), accel.Z(), 1.0);
 
 				led.Set();
 			}
 		} else {
-			uint64_t start = systemtimer_get();
 			pnr.Put(gx - zero_angles.X(), gy - zero_angles.Y(),
 					gz - zero_angles.Z(), dt);
 			pnr.Adjust(ax, ay, az, 0.01);
 			uint64_t end = systemtimer_get();
 
-			float roll = pnr.Roll();
-			if (roll < -45.0) {
-				roll = -45.0;
-			} else if (roll > 45.0) {
-				roll = 45.0;
-			}
-			int length = 1500 + (int) (500.0 * roll / 45.0);
-			servos.Set(0, length);
+			if (input_4.GetPulseLength() < 1300) {
+				servos.SetPulseLength(Throttle, input_0.GetPulseLength());
+				servos.SetPulseLength(Ailerons, input_1.GetPulseLength());
+				servos.SetPulseLength(Elevator, input_2.GetPulseLength());
+				servos.SetPulseLength(Rudder, input_3.GetPulseLength());
+			} else {
+				servos.SetPulseLength(Throttle, input_0.GetPulseLength());
 
-			float pitch = pnr.Pitch();
-			if (pitch < -45.0) {
-				pitch = -45.0;
-			} else if (pitch > 45.0) {
-				pitch = 45.0;
-			}
-			length = 1500 + (int) (500.0 * pitch / 45.0);
-			servos.Set(1, length);
+				float gain = (float)(input_5.GetPulseLength() - 1000) / 1000.0;
+				servos.SetAngle(Ailerons, pnr.Roll() * gain + input_1.GetAngle());
 
-//		      printf("R: %7.3f  P: %7.3f    %d\n\r", pnr.Roll(), pnr.Pitch(), end - start);
-//			printf("%6d %6d %6d %6d    %6d\n\r", input_0.Get(), input_1.Get(),
-//					input_2.Get(), input_3.Get(), input_4.Get());
+				//servos.SetAngle(Elevator, pnr.Pitch());
+				servos.SetPulseLength(Elevator, input_2.GetPulseLength());
+				servos.SetPulseLength(Rudder, input_3.GetPulseLength());
+			}
 		}
 
 		last_time = now;
@@ -156,6 +177,9 @@ void c_irq_handler(void) {
 		if (gpio_get_edge_detected(INPUT_4_GPIO)) {
 			input_4.Service();
 		}
+		if (gpio_get_edge_detected(INPUT_5_GPIO)) {
+			input_5.Service();
+		}
 	}
 	if (interrupt_pending(PERIODIC_TIMER_CHANNEL)) {
 		input_0.Service();
@@ -163,6 +187,7 @@ void c_irq_handler(void) {
 		input_2.Service();
 		input_3.Service();
 		input_4.Service();
+		input_5.Service();
 
 		//
 		// Reset for another 100ms in the future.
@@ -174,28 +199,33 @@ void c_irq_handler(void) {
 	}
 }
 
+void passthrough(void) {
+	while (1) {
+		gpio_copy(INPUT_0_GPIO, SERVO_0_GPIO);
+		gpio_copy(INPUT_1_GPIO, SERVO_1_GPIO);
+		gpio_copy(INPUT_2_GPIO, SERVO_2_GPIO);
+		gpio_copy(INPUT_3_GPIO, SERVO_3_GPIO);
+	}
+}
+
 void c_undefined_handler(void) {
 	printf("\n\r*** UNDEFINED\n\r");
-	while (1)
-		;
+	passthrough();
 }
 
 void c_swi_handler(void) {
 	printf("\n\r*** SWI\n\r");
-	while (1)
-		;
+	passthrough();
 }
 
 void c_prefetch_handler(void) {
 	printf("\n\r*** PREFETCH\n\r");
-	while (1)
-		;
+	passthrough();
 }
 
 void c_data_handler(void) {
 	printf("\n\r*** DATA\n\r");
-	while (1)
-		;
+	passthrough();
 }
 
 }
